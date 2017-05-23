@@ -1,0 +1,129 @@
+---
+title: "Machine Learning Project - Week 4"
+output:
+  html_document: default
+date: "5/20/2017"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+##A.	Introduction:
+The objective of this report is to "predict" the way in which the 6 participants performed the dumbbell exercise. The dumbbell exercises was performed in 5 styles (referred as "classe"). Each style has 10 repetitions exercises being performed. The exercises was recorded using wearable devices. The data sets provided contains 2 types: "Training" and "Testing" from the following web link:
+
+1. Training Data: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+2. Test Data: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+##B.	Data Preparation and Exploration:
+Preparation begins with loading the necessary libraries. Once the "raw data sets" are downloaded from the given web link source, we performed data exploration. The dimension of the raw data sets are as follows:
+
+1.	Raw Training(train1.raw): 19622 rows/records and 160 columns/fields
+2.	Raw Testing (test1.raw): 20 rows/records and 160 columns/fields
+
+Data cleansing was executed to generate an uncontaminated data before data partitioning and prediction,  NA's, near zero variables and 7 initial columns as identifiers was identified as most likely columns to be cleansed. The dimension of the data sets after data cleansing are as follows:
+
+1.	Clean Training(train1.clean): 19622 rows/records and 53 columns/fields
+2.	Clean Testing(test1. clean): 20 rows/records and 53 columns/fields
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(kernlab)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+library(e1071)
+```
+
+
+```{r}
+# set the URL for the download
+train1.url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+test1.url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+# download the datasets
+train1.raw <- read.csv(url(train1.url), na.strings = c("NA", ""))
+test1.raw <- read.csv(url(test1.url), na.strings = c("NA", ""))
+
+dim(train1.raw)
+dim(test1.raw)
+
+str(train1.raw)
+
+##Remove NA column & column 1-7 as identifier column
+train1.clean <- train1.raw[, colSums(is.na(train1.raw)) == 0]
+train1.clean <- train1.clean[, -c(1:7)]
+
+test1.clean <- test1.raw[, colSums(is.na(test1.raw)) == 0]
+test1.clean <- test1.clean[, -c(1:7)]
+
+dim(train1.clean)
+dim(test1.clean)
+```
+
+##C.	Data Partitioning:
+
+Data partitioning was performed into the "clean training data set", by allocating "70% for train and 30% for test". Note that the "clean testing data set is excluded in data partition. The dimension of the clean training data set after data partitioning are as follows:
+
+1.	Partition Training: 13737 rows/records and 53 columns/fields
+2.	Partition Testing: 5885 rows/records and 53 columns/fields
+
+
+In prediction model, 2 types of algorithm methods ("random forest and decision tree") was performed into the Partition Training.
+
+
+```{r}
+inTrain<-createDataPartition(y=train1.clean$classe, p=0.7, list = FALSE)
+trainset<-train1.clean[inTrain,]
+testset<-train1.clean[-inTrain,]
+dim(trainset); dim(testset)
+```
+
+##D. Method 1: Random Forest:
+
+Using Random Forest function, "fit" is applied to the Partition Training Data Set and prediction was used into Partition Training Data Set. Confusion Matrix function was executed to get the accuracy percentage. The accuracy result for Random Forest is 99.44 % 
+
+
+```{r}
+set.seed(6666)
+mod1.rf <- randomForest(classe~.,method="class", data=trainset, 
+                trControl= trainControl(method = "cv",number = 4,allowParallel = TRUE)
+            )
+
+cv.rf<-predict(mod1.rf, testset)
+c1<-confusionMatrix(testset$classe, cv.rf)
+c1
+
+# prediction based on random forest
+#predict1.rf <- predict(mod1.rf, newdata=testset)
+#confMatRandForest <- confusionMatrix(predict1.rf, testset$classe)
+#confMatRandForest
+```
+
+##E.Method 2: Decision Tree:
+
+We also applied Decision Tree (class) method to get another perspective of accuracy level. Based on confusion matrix results,  the accuracy for Decision Tree is 74.6% 
+
+
+```{r}
+mod1.dc <- rpart(classe ~ ., data=testset, method="class")
+rpart.plot(mod1.dc)
+
+# prediction based on Decision Tree
+predict1.dc <- predict(mod1.dc, newdata=testset, type="class")
+confMatDecTree <- confusionMatrix(predict1.dc, testset$classe)
+confMatDecTree
+```
+
+###F. Apply Random Forest into Clean Test Data Set:
+
+The accuracy results above indicates that Random Forest method gives higher accuracy as compared to Decision Tree. Therefore, prediction was applied into Clean Test Data using Random Forrest Method. The prediction result is shown below. 
+
+
+```{r}
+predict1.final <- predict(mod1.rf, newdata=test1.clean)
+predict1.final
+```
